@@ -1,0 +1,68 @@
+﻿<!DOCTYPE html>
+
+@{
+    ViewBag.Title = "Login";
+    Layout = null;
+}
+<html>
+<head>
+    <meta name="viewport" content="width=device-width" />
+    <title>Login</title>
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.8.1/css/all.css">
+    <link rel="stylesheet" href="~/Content/bootstrap.css" />
+    <link rel="stylesheet" href="~/Content/login.css" />
+    <script type="text/javascript" src="~/Scripts/jquery.js"></script>
+    <script type="text/javascript" src="~/Scripts/bootstrap.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="d-flex justify-content-center h-100">
+            <div class="card">
+                <div class="card-header">
+                    <h3>MeDoc</h3>
+                </div>
+                <div class="card-body">
+                    <form id="submitForm" method="post">
+                        <div class="input-group form-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text"><i class="fas fa-user"></i></span>
+                            </div>
+                            <input type="text" id="login" name="login" class="form-control" placeholder="логин">
+
+                        </div>
+                        <div class="input-group form-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text"><i class="fas fa-key"></i></span>
+                            </div>
+                            <input type="password" id="password" name="password" class="form-control" placeholder="пароль">
+                        </div>
+                        <div class="row align-items-center remember">
+                            <input type="checkbox">Запомнить меня
+                        </div>
+                        <div class="form-group">
+                            <input type="submit" id="submitBtn" value="Войти" class="btn float-right btn-primary">
+                        </div>
+                    </form>
+                </div>
+                <div class="card-footer">
+                    <div class="d-flex justify-content-center links">
+                        <a href="#">Зарегистрироваться</a>
+                    </div>
+                    <div class="d-flex justify-content-center">
+                        <a href="#">Забыли пароль?</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script type="text/javascript">
+      /*  $('#submitBtn').on('click', function () {
+            document.getElementById("submitForm").submit();
+            return;
+            const login = $('#login').val();
+            const pass = $('#password').val();
+            $.post('/Account/Login', { login: login, password: pass });
+        });*/
+    </script>
+</body>
+</html>

@@ -1,0 +1,334 @@
+-- Adminer 4.7.1 MySQL dump
+
+SET NAMES utf8;
+SET time_zone = '+00:00';
+SET foreign_key_checks = 0;
+SET sql_mode = 'NO_AUTO_VALUE_ON_ZERO';
+
+DELIMITER ;;
+
+DROP PROCEDURE IF EXISTS `clients_delete`;;
+CREATE PROCEDURE `clients_delete`(IN `clientId` int(11), IN `updatedby` int(11))
+begin
+ update clients set active=0,update_date=now(),updated_by=updatedby where id=clientid;
+end;;
+
+DROP PROCEDURE IF EXISTS `clients_get`;;
+CREATE PROCEDURE `clients_get`(IN `clientId` int(11))
+begin
+     select c.id,c.org_name,c.inn,c.kpp,c.active from clients c where c.id=clientId limit 1;
+end;;
+
+DROP PROCEDURE IF EXISTS `clients_search`;;
+CREATE PROCEDURE `clients_search`(IN `name` varchar(64))
+begin
+  select id,concat(org_name,' (',inn,')') as org_name  from clients where org_name like concat(name,'%') or inn like concat(name,'%');
+end;;
+
+DROP PROCEDURE IF EXISTS `clients_table`;;
+CREATE PROCEDURE `clients_table`(IN `model` varchar(8196))
+begin
+    select c.id,c.org_name,c.inn,c.kpp,c.active from clients c where c.active=1 order by c.org_name;
+end;;
+
+DROP PROCEDURE IF EXISTS `clients_update`;;
+CREATE PROCEDURE `clients_update`(IN `model` varchar(8192))
+t: begin
+declare orgName varchar(1024);
+declare orgId int default null;
+declare inn varchar(12);
+declare kpp varchar(9);
+declare userId int;
+  declare result int default 1;
+  set orgName = JSON_UNQUOTE(json_extract(model, '$.ClientName'));
+  set orgId = if(json_extract(model, '$.ClientId')= CAST('null' AS JSON),-1,json_extract(model, '$.ClientId'));
+  set inn = JSON_UNQUOTE(json_extract(model, '$.Inn'));
+  set kpp = JSON_UNQUOTE(json_extract(model, '$.Kpp'));
+  set userId = JSON_UNQUOTE(json_extract(model, '$.UserId'));
+if orgId =-1 then
+set orgId = null;
+end if;
+  if exists ( SELECT
+    1
+  FROM clients c
+  WHERE c.inn = inn
+  AND c.kpp = kpp
+  AND orgId IS NULL) THEN
+  set result=0;
+else 
+  if (orgId is null) then
+    insert into clients (created_by, create_date, org_name, inn, kpp) values (userId, now(), orgName, inn, kpp);
+ELSE
+  update clients set org_name=orgName,inn=inn,kpp=kpp,update_date=now(),updated_by=userId where id=orgId;
+  set result = 2;
+END IF;
+      end if;
+  select result;
+end;;
+
+DROP PROCEDURE IF EXISTS `contract_table`;;
+CREATE PROCEDURE `contract_table`(IN userId INT, IN showAll TINYINT)
+BEGIN
+  select c.id as contract_id,c.create_date,c.update_date,c.contract_name,c.contract_sum,c.contract_from,c.contract_to,cs.status_name,cl.org_name,cl.inn,cl.kpp,u.login performer,c.active
+from contracts c 
+join contract_statuses cs ON cs.id=c.status_id
+join clients cl ON cl.id=c.client_id
+join users u ON u.id=c.created_by
+where (c.created_by=userId or showAll = 1);
+END;;
+
+DROP PROCEDURE IF EXISTS `contract_update`;;
+CREATE PROCEDURE `contract_update`(IN `model` varchar(10000))
+BEGIN
+  declare userId int;
+  declare contractId int default null;
+  declare contractName varchar(255);
+  declare contractSum float default 0;
+  declare contractFrom datetime default null;
+  declare contractTo datetime default null;
+  declare comment mediumtext default null;
+  declare clientId int default null;
+  declare result int default 0;
+  set userId = JSON_UNQUOTE(json_extract(model, '$.UserId'));
+  set contractId = if(json_extract(model, '$.ContractId')= CAST('null' AS JSON),-1,json_extract(model, '$.ContractId'));
+  set contractName = JSON_UNQUOTE(json_extract(model, '$.ContractName'));
+  set contractSum = JSON_UNQUOTE(json_extract(model, '$.ContractSum'));
+ set contractFrom = JSON_UNQUOTE(json_extract(model, '$.ContractFrom'));
+  set contractTo = if(json_extract(model, '$.ContractTo')= CAST('null' AS JSON),null,json_extract(model, '$.ContractTo'));
+  set comment = JSON_UNQUOTE(json_extract(model, '$.Comment'));
+  set clientId = JSON_UNQUOTE(json_extract(model, '$.CounterpartyId'));
+  if contractId = -1 then
+    set contractId = null;
+  end if;
+-- select userId,contractId,contractName,contractSum,contractFrom,contractTo,comment,clientId;
+  if contractId is null then
+-- new contract
+ --   select 'insert';
+ INSERT INTO contracts (created_by, create_date, client_id, contract_name, contract_sum, status_id, contract_from, contract_to, comment)
+  VALUES (userId, NOW(), clientId, contractName, contractSum, 1, contractFrom, contractTo, comment);
+  select id into result from contracts order by id desc limit 1;
+ELSE
+-- update contract
+UPDATE contracts
+SET updated_by = userId,
+    update_date = NOW(),
+    client_id = clientId,
+    contract_name = contractName,
+    contract_sum = contractSum,
+    contract_from = contractFrom,
+    contract_to = contractTo,
+    comment = comment
+WHERE id = contractId;
+  set result = contractId;
+END IF;
+  select result;
+END;;
+
+DROP PROCEDURE IF EXISTS `dictionary_get`;;
+CREATE PROCEDURE `dictionary_get`(IN `dictionary_type` varchar(32))
+begin
+ DROP TABLE IF EXISTS `tmp`;
+ create table tmp (id int, name varchar(1024), active tinyint) engine=memory;
+
+  if dictionary_type='fileTypes' then
+     insert into tmp (id, name, active) select id,type_name,active from file_types;
+  elseif dictionary_type = 'contractStatuses' then
+    insert into tmp (id, name,active) select id,status_name,active from contract_statuses;
+  end if;
+ select id,name,active from tmp order by name;
+ DROP TABLE IF EXISTS `tmp`;
+end;;
+
+DROP PROCEDURE IF EXISTS `dictionary_update`;;
+CREATE PROCEDURE `dictionary_update`(IN `type` varchar(32), IN `id` int(11), IN `name` varchar(256), IN `active` tinyint(1))
+begin
+ if type='fileTypes' then
+     if id is null then
+       insert into file_types (type_name) values (name) on duplicate key update active=1;
+     else
+       update file_types f set f.active=active,f.type_name=name where f.id=id;   
+     end if;
+  elseif type= 'contractStatuses' then
+      if id is null then
+          insert into contract_statuses (status_name) values (name) on duplicate key update active=1;
+      else
+        update contract_statuses s set s.active=active,s.status_name=name where s.id=id;
+      end if;
+  end if;
+end;;
+
+DROP PROCEDURE IF EXISTS `file_upload`;;
+CREATE PROCEDURE `file_upload`(IN model longtext)
+BEGIN
+  declare userId int default null;
+  declare contractId int default null;
+  declare fileName varchar(255) default null;
+  declare fileType int default null;
+  declare fileContent longtext default null;
+  set userId = JSON_UNQUOTE(json_extract(model, '$.UserId'));
+  set contractId = JSON_UNQUOTE(json_extract(model, '$.ContractId'));
+  set fileName = JSON_UNQUOTE(json_extract(model, '$.FileName'));
+  set fileContent = JSON_UNQUOTE(json_extract(model, '$.FileContent'));
+  set fileType = JSON_UNQUOTE(json_extract(model, '$.FileType'));
+  insert into files (contract_id,created_by,created_on,file_name,file_content,file_type)
+    values (contractId, userId, now(), fileName, fileContent, fileType);
+
+END;;
+
+DROP PROCEDURE IF EXISTS `json_test`;;
+CREATE PROCEDURE `json_test`()
+BEGIN
+  declare js varchar(256);
+  declare v varchar(125);
+      set js = '{"url":"https://www.cpubenchmark.net/","title": "CPU Benchmarks"}';
+  set v = JSON_UNQUOTE(json_extract(js, '$.url'));
+  select v;
+END;;
+
+DROP PROCEDURE IF EXISTS `users_check`;;
+CREATE PROCEDURE `users_check`(IN login VARCHAR(255), IN password VARCHAR(255))
+begin
+    declare cnt int;
+    declare result int;
+    set result = 1;
+    select count(*) into cnt from users u where u.login = login and u.password=password;
+if cnt=0 then
+  set result = -1;
+    end if;
+
+select result;
+end;;
+
+DROP PROCEDURE IF EXISTS `users_create`;;
+CREATE PROCEDURE `users_create`(IN login VARCHAR(255), IN email VARCHAR(255), IN password VARCHAR(255))
+endpoint: BEGIN
+  declare result int;
+  set result = 1;
+  if exists (select 1 from users u where u.email=email or u.login=login) THEN
+  set result=-1;
+  select result;
+  leave endpoint;
+  end if;
+  insert into users (login,password,email)
+    values (login,password,email);
+  select result;
+END;;
+
+DROP PROCEDURE IF EXISTS `users_get`;;
+CREATE PROCEDURE `users_get`(IN login VARCHAR(255))
+BEGIN
+ select u.id,u.login,u.email from users u where u.login=login limit 1;
+END;;
+
+DELIMITER ;
+
+DROP TABLE IF EXISTS `clients`;
+CREATE TABLE `clients` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `created_by` int(11) DEFAULT NULL,
+  `updated_by` int(11) DEFAULT NULL,
+  `create_date` datetime DEFAULT NULL,
+  `update_date` datetime DEFAULT NULL,
+  `org_name` varchar(1024) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `inn` varchar(12) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `kpp` varchar(9) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `active` tinyint(4) NOT NULL DEFAULT '1',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+
+DROP TABLE IF EXISTS `contract_statuses`;
+CREATE TABLE `contract_statuses` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `status_name` varchar(1024) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `active` tinyint(1) NOT NULL DEFAULT '1',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `status_name` (`status_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+
+DROP TABLE IF EXISTS `contracts`;
+CREATE TABLE `contracts` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `created_by` int(11) DEFAULT NULL,
+  `updated_by` int(11) DEFAULT NULL,
+  `create_date` datetime DEFAULT NULL,
+  `update_date` datetime DEFAULT NULL,
+  `client_id` int(11) DEFAULT NULL,
+  `contract_name` varchar(256) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `contract_sum` decimal(10,0) DEFAULT NULL,
+  `status_id` int(11) DEFAULT NULL,
+  `contract_from` date DEFAULT NULL,
+  `contract_to` date DEFAULT NULL,
+  `comment` mediumtext COLLATE utf8_unicode_ci,
+  `active` tinyint(4) NOT NULL DEFAULT '1',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+
+DROP TABLE IF EXISTS `file_types`;
+CREATE TABLE `file_types` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `type_name` varchar(128) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `active` tinyint(1) NOT NULL DEFAULT '1',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `type_name` (`type_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+
+DROP TABLE IF EXISTS `files`;
+CREATE TABLE `files` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `contract_id` int(11) DEFAULT NULL,
+  `created_by` int(11) DEFAULT NULL,
+  `created_on` datetime DEFAULT NULL,
+  `file_name` varchar(256) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `file_content` longtext COLLATE utf8_unicode_ci,
+  `file_type` int(11) DEFAULT NULL,
+  `active` tinyint(1) NOT NULL DEFAULT '1',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+
+DROP TABLE IF EXISTS `harmonization`;
+CREATE TABLE `harmonization` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `create_date` datetime DEFAULT NULL,
+  `contract_id` int(11) DEFAULT NULL,
+  `user_id` int(11) DEFAULT NULL,
+  `status_id` int(11) DEFAULT NULL,
+  `comment` varchar(2048) COLLATE utf8_unicode_ci DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+
+DROP TABLE IF EXISTS `roles`;
+CREATE TABLE `roles` (
+  `role_id` int(11) NOT NULL AUTO_INCREMENT,
+  `role_name` varchar(128) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `role_active` tinyint(1) NOT NULL DEFAULT '1',
+  PRIMARY KEY (`role_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+
+DROP TABLE IF EXISTS `user_roles`;
+CREATE TABLE `user_roles` (
+  `user_id` int(11) DEFAULT NULL,
+  `role_id` int(11) DEFAULT NULL,
+  UNIQUE KEY `user_id_role_id` (`user_id`,`role_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+
+DROP TABLE IF EXISTS `users`;
+CREATE TABLE `users` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `login` varchar(255) COLLATE utf8_unicode_ci NOT NULL,
+  `password` varchar(255) COLLATE utf8_unicode_ci NOT NULL,
+  `email` varchar(255) COLLATE utf8_unicode_ci NOT NULL,
+  `verified` tinyint(1) NOT NULL DEFAULT '0',
+  `active` tinyint(4) NOT NULL DEFAULT '1',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+
+-- 2019-04-28 15:03:39

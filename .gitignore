@@ -3,3 +3,9 @@
 ################################################################################
 
 /Medoc/bin
+/Medoc/obj
+/MedocData/bin
+/MedocData/obj
+/MedocDto/bin/Debug
+/MedocDto/obj/Debug
+/packages

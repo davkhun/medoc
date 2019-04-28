@@ -1,0 +1,184 @@
+﻿
+@{
+    ViewBag.Title = "Index";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+    <div class="row">
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">Поиск</h5>
+                </div>
+                <div class="card-body">
+                    <div class="form-group">
+                        <label>Название</label>
+                        <input class="form-control" id="sOrgNameInput" />
+                    </div>
+                    <div class="form-group">
+                        <label>ИНН</label>
+                        <input class="form-control" id="sInnInput" />
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <button id="searchClientBtn" class="btn btn-outline-primary">Найти<i class="fas fa-search fa-fw"></i></button>
+                    <button id="newClientBtn" class="btn btn-outline-success">Новый<i class="fas fa-plus fa-fw"></i></button>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">Клиенты</h5>
+                </div>
+                <div class="card-body">
+                    <table id="clientTable" class="table table-bordered table-hover table-striped" style="width:100%"></table> 
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+<div class="modal fade" tabindex="-1" role="dialog" id="newClientModal">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="newClientTitle">Новый контрагент</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Название организации</label>
+                    <input id="newOrgNameInput" class="form-control" />
+                </div>
+                <div class="form-group">
+                    <label>ИНН</label>
+                    <input id="newInnInput" class="form-control" maxlength="12" />
+                </div>
+                <div class="form-group">
+                    <label>КПП</label>
+                    <input id="newKppInput" class="form-control" maxlength="9" />
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" id="updateClientBtn" class="btn btn-outline-primary">Сохранить<i class="fas fa-save fa-fw"></i></button>
+                <button type="button" class="btn btn-outline-secondary" data-dismiss="modal">Закрыть<i class="fas fa-times fa-fw"></i></button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+    $(document).ready(function () {
+        populateTable();
+    });
+
+    $('#newClientBtn').on('click', function () {
+        clearNewClientModal();
+        $('#newClientModal').modal('show');
+    });
+
+    $('#updateClientBtn').on('click', function () {
+        const clientId = $('#newClientModal').attr('data-id');
+        const clientName = $('#newOrgNameInput').val();
+        const clientInn = $('#newInnInput').val();
+        const clientKpp = $('#newKppInput').val();
+        const model = {
+            ClientId: clientId ? clientId : null,
+            ClientName: clientName,
+            Inn: clientInn,
+            Kpp: clientKpp
+        };
+        $.post('/Clients/Update', { model: model }, function (result) {
+            console.log(result);
+            if (clientId)
+                swal.fire('Контрагент успешно обновлен!', '', 'success').then(() => $('#newClientModal').modal('hide'));
+            else
+                swal.fire('Контрагент успешно добавлен!', '', 'success').then(() => $('#newClientModal').modal('hide'));
+            populateTable();
+        });
+    });
+
+    function clearNewClientModal() {
+        $('#newClientTitle').text('Новый контрагент');
+        $('#newClientModal').removeAttr('data-id');
+        $('#newOrgNameInput').val('');
+        $('#newInnInput').val('');
+        $('#newKppInput').val('');
+    }
+
+    function populateTable() {
+        $('#clientTable').dataTable({
+            "destroy": true,
+            "ajax": "/Clients/Get",
+            "language": {
+                "url": "Scripts/datatables_ru.json"
+            },
+            "columns": [
+                { "defaultContent": "", "title": "Название" },
+                { "defaultContent": "" }
+            ],
+            "columnDefs": [
+                {
+                    "targets": 0,
+                    "render": function (data, type, row) {
+                        return `<b>${row.ClientName}</b><br/>${row.Inn}${row.Kpp == 'null' ? '' : '-' + row.Kpp}`;
+                    }
+                },
+                {
+                    "targets": 1,
+                    "width": "40",
+                    "render": function (data, type, row) {
+                        return `<div class="btn-group" role="group"><button type="button" class="btn btn-sm btn-outline-primary" name="updateClientBtn" data-id="${row.ClientId}"><i class="fas fa-edit"></i></button><button type="button" class="btn btn-sm btn-outline-danger" name="deleteClientBtn" data-id="${row.ClientId}"><i class="far fa-trash-alt"></i></button></div>`
+                    }
+                }
+            ],
+            "fnInitComplete": function (oSettings, json) {
+                configureDeleteClient();
+                configureUpdateClient();
+            }
+        });
+    }
+
+    function configureDeleteClient() {
+        $('button[name=deleteClientBtn]').on('click', function () {
+            const clientId = $(this).attr('data-id');
+            Swal.fire({
+                title: 'Вы действительно хотите удалить этого контрагента?',
+                type: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Да',
+                cancelButtonText: 'Нет'
+            }).then((result) => {
+                if (result.value) {
+                    $.post('/Clients/Delete', { clientId: clientId }, function () {
+                        Swal.fire(
+                            'Контрагент удален успешно!',
+                            '',
+                            'success'
+                        ).then(() => populateTable());
+                    });
+
+                }
+            });
+        });
+    }
+
+    function configureUpdateClient() {
+        $('button[name=updateClientBtn]').on('click', function () {
+            const clientId = $(this).attr('data-id');
+            $.get('/Clients/GetItem', { clientId: clientId }, function (result) {
+                clearNewClientModal();
+                $('#newClientTitle').text('Редактирование контрагента');
+                $('#newClientModal').attr('data-id', result.ClientId);
+                $('#newOrgNameInput').val(result.ClientName);
+                $('#newInnInput').val(result.Inn);
+                $('#newKppInput').val(result.Kpp);
+                $('#newClientModal').modal('show');
+            });
+
+        });
+    }
+</script>

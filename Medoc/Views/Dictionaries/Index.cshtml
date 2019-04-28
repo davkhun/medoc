@@ -1,0 +1,169 @@
+﻿
+@{
+    ViewBag.Title = "Index";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="row">
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title">Справочники</h5>
+            </div>
+            <div class="card-body">
+                <div class="form-group">
+                    <a href="javascript:" id="fileTypesA">Типы файлов</a>
+                </div>
+                <div class="form-group">
+                    <a href="javascript:" id="contractStatusesA">Статусы договора</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header" id="dictNewItemDiv" style="display:none">
+                <button id="newItemBtn" class="btn btn-outline-success">Новая запись<i class="fas fa-plus fa-fw"></i></button>
+            </div>
+            <div class="card-body">
+                <table id="dictTable" class="table table-bordered table-hover table-striped" style="width:100%"></table>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<div class="modal fade" tabindex="-1" role="dialog" id="newItemModal">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="newItemTitle">Новый элемент</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Название</label>
+                    <input id="newItemNameInput" class="form-control" />
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" id="updateItemBtn" class="btn btn-outline-primary">Сохранить<i class="fas fa-save fa-fw"></i></button>
+                <button type="button" class="btn btn-outline-secondary" data-dismiss="modal">Закрыть<i class="fas fa-times fa-fw"></i></button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript" src="~/Scripts/Dictionaries/common.js"></script>
+<script type="text/javascript" src="~/Scripts/Dictionaries/model.js"></script>
+<script type="text/javascript">
+    var _savedDictType = null;
+    $('#fileTypesA').on('click', function () {
+        _savedDictType = _DictionaryType.FileTypes;
+        populateTable(_savedDictType);
+    });
+    $('#contractStatusesA').on('click', function () {
+        _savedDictType = _DictionaryType.ContractStatuses;
+        populateTable(_savedDictType);
+
+    });
+    $('#newItemBtn').on('click', function () {
+        clearNewItemModal();
+        $('#newItemModal').modal('show');
+    });
+    $('#updateItemBtn').on('click', function () {
+        const id = $('#newItemModal').attr('data-id') ? $('#newItemModal').attr('data-id') : null;
+        const name = $('#newItemNameInput').val();
+        const model = collectModel(id, name, true);
+        const resultMessage = id ? 'Обновлено успешно!' : 'Создано успешно!';
+        $.post('/Dictionaries/Update', { dictType: _savedDictType, model: model }, function () {
+            swal.fire(resultMessage, '', 'success').then(() => {
+                populateTable(_savedDictType);
+                $('#newItemModal').modal('hide');
+            });
+        });
+    });
+    $('#newItemNameInput').on('keydown', function (e) {
+        if (e.which == 13) {
+            e.preventDefault();
+            $('#updateItemBtn').click();
+        }
+    });
+
+
+    function populateTable(dictType) {
+        $('#dictNewItemDiv').show();
+        $('#dictTable').dataTable({
+            "destroy": true,
+            "ajax": {
+                "url": "/Dictionaries/Get",
+                "data": {dictType: dictType, showAll: false}
+            }, 
+            "language": {
+                "url": "Scripts/datatables_ru.json"
+            },
+            "columns": [
+                { "data": "Name", "title": "Название" },
+                { "defaultContent": "" }
+            ],
+            "columnDefs": [
+                {
+                    "targets": 1,
+                    "width": "40",
+                    "render": function (data, type, row) {
+                        return `<div class="btn-group" role="group"><button type="button" class="btn btn-sm btn-outline-primary" name="updateItemBtn" data-id="${row.Id}" data-name="${row.Name}"><i class="fas fa-edit"></i></button><button type="button" class="btn btn-sm btn-outline-danger" name="deleteItemBtn" data-id="${row.Id}" data-name="${row.Name}"><i class="far fa-trash-alt"></i></button></div>`
+                    }
+                }
+            ],
+            "fnInitComplete": function (oSettings, json) {
+                configureDeleteItem();
+                configureUpdateItem();
+            }
+        });
+    }
+
+    function configureDeleteItem() {
+        $('button[name=deleteItemBtn]').on('click', function () {
+            const id = $(this).attr('data-id');
+            const name = $(this).attr('data-name');
+            const model = collectModel(id, name, false);
+            Swal.fire({
+                title: 'Вы действительно хотите удалить элемент?',
+                type: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Да',
+                cancelButtonText: 'Нет'
+            }).then((result) => {
+                if (result.value) {
+                    $.post('/Dictionaries/Update', { dictType: _savedDictType, model: model }, function () {
+                        Swal.fire('Элемент справочника удален успешно!', '', 'success').then(() => populateTable(_savedDictType));
+                    });
+
+                }
+            });
+        });
+    }
+
+    function configureUpdateItem() {
+        $('button[name=updateItemBtn]').on('click', function () {
+            const id = $(this).attr('data-id');
+            $.get('/Dictionaries/GetItem', { dictType: _savedDictType, id: id }, function (result) {
+                clearNewItemModal();
+                $('#newItemTitle').text('Редактирование элемента');
+                $('#newItemModal').attr('data-id', result.Id);
+                $('#newItemNameInput').val(result.Name);
+                $('#newItemModal').modal('show');
+            });
+
+        });
+    }
+
+    function clearNewItemModal() {
+        $('#newItemTitle').text('Новый элемент');
+        $('#newItemModal').removeAttr('data-id');
+        $('#newItemNameInput').val('');
+    }
+</script>
+
