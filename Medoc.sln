@@ -9,6 +9,11 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MedocData", "MedocData\Medo
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MedocDto", "MedocDto\MedocDto.csproj", "{544F1D4F-F49E-41FD-B284-60F08FF06CB3}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Dumps", "Dumps", "{F7192E03-182D-45F2-B88B-65BFC3C4AAEB}"
+	ProjectSection(SolutionItems) = preProject
+		Dumps\mysql.txt = Dumps\mysql.txt
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
