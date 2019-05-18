@@ -31,6 +31,17 @@ namespace Medoc.Controllers
             return Json(result, JsonRequestBehavior.AllowGet);
         }
 
+        public JsonResult GetContract(int contractId)
+        {
+            var result = _contractContext.GetContract(contractId);
+            return Json(result, JsonRequestBehavior.AllowGet);
+        }
+
+        public void DeleteContract(int contractId)
+        {
+            _contractContext.DeleteContract(contractId);
+        }
+
         [HttpPost]
         public JsonResult Upload(int fileType, int contractId)
         {

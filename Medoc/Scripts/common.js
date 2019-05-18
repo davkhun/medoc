@@ -7,6 +7,8 @@
 }
 
 function GetDateFromJson(value) {
+    if (!value || value == '')
+        return '';
     const date = new Date(parseInt(value.substr(6)));
     return moment(date).format('DD.MM.YYYY');
 }

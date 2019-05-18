@@ -92,6 +92,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" id="updateContractBtn" class="btn btn-outline-primary">Сохранить и добавить файлы<i class="fas fa-save fa-fw"></i></button>
+                <button type="button" id="updateAndCloseContractBtn" class="btn btn-outline-success">Сохранить и закрыть<i class="fas fa-save fa-fw"></i></button>
                 <button type="button" class="btn btn-outline-secondary" data-dismiss="modal">Закрыть<i class="fas fa-times fa-fw"></i></button>
             </div>
         </div>
@@ -186,7 +187,7 @@
         }
     });
 
-    $('#updateContractBtn').on('click', function () {
+    function updateContract(showFiles) {
         // заебенить получение файлов договора
         if (ValidateForm('#newContractModalBody')) {
             const model = collectContractModel();
@@ -202,9 +203,13 @@
                         timer: 1500
                     });
                     $('#newContractModal').modal('hide');
-                    $('#newContractFileModal').attr('data-id', result.Id);
-                    $('#newContractFileModal').modal('show');
-
+                    if (showFiles) {
+                        $('#newContractFileModal').attr('data-id', result.Id);
+                        $('#newContractFileModal').modal('show');
+                    }
+                    else {
+                        populateTable();
+                    }
                 }
                 else {
                     swal.fire(`Ошибка при сохранении договора:<br/>${result.Message}`, '', 'error');
@@ -212,6 +217,14 @@
                 }
             });
         }
+    }
+
+    $('#updateContractBtn').on('click', function () {
+        updateContract(true);
+    });
+
+    $('#updateAndCloseContractBtn').on('click', function () {
+        updateContract(false);
     });
 
 
@@ -303,17 +316,66 @@
                     "targets": 4,
                     "render": function (data, type, row) {
                         return `<div class="btn-group" role="group">
-  <button type="button" class="btn btn-outline-primary" data-toggle="tooltip" title="Редактирование" data-id="${row.Id}"><i class="far fa-edit"></i></button>
-  <button type="button" class="btn btn-outline-info" data-toggle="tooltip" title="Файлы договора" data-id="${row.Id}"><i class="fas fa-file"></i></button>
-  <button type="button" class="btn btn-outline-danger" data-toggle="tooltip" title="Удаление договора" data-id="${row.Id}"><i class="fas fa-trash"></i></button>
+  <button type="button" class="btn btn-outline-primary" data-toggle="tooltip" title="Редактирование" name="editContract" data-id="${row.Id}"><i class="far fa-edit"></i></button>
+  <button type="button" class="btn btn-outline-info" data-toggle="tooltip" title="Файлы договора" name="contractFiles" data-id="${row.Id}"><i class="fas fa-file"></i></button>
+  <button type="button" class="btn btn-outline-danger" data-toggle="tooltip" title="Удаление договора" name="deleteContract" data-id="${row.Id}"><i class="fas fa-trash"></i></button>
 </div>`;
                     }
                 }
             ],
             "fnInitComplete": function (oSettings, json) {
                 console.log(json);
+                configureUpdateContract();
+                configureDeleteContract();
+                configureContractFiles();
                 $('[data-toggle="tooltip"]').tooltip();
             }
+        });
+    }
+
+    function configureUpdateContract() {
+        $('button[name=editContract]').on('click', function () {
+            const id = $(this).attr('data-id');
+            $.get('/Contract/GetContract', { contractId: id }, function (result) {
+                console.log(result);
+                clearContract();
+                $('#newContractModal').attr('data-id', result.ContractId);
+                $('#contractNameInput').val(result.ContractName);
+                $('#contractSumInput').val(result.ContractSum);
+                $('#contractFrom').find('input').val(GetDateFromJson(result.ContractFrom));
+                $('#contractTo').find('input').val(GetDateFromJson(result.ContractTo));
+                $('#contractCounterpartyInput').attr('data-id',result.CounterpartyId);
+                $('#contractCounterpartyInput').val(result.CounterpartyName);
+                $('#contractComment').val(result.Comment);
+                $('#newContractModal').modal('show');
+            });
+
+        });
+    }
+
+    function configureDeleteContract() {
+        $('button[name=deleteContract]').on('click', function () {
+            const id = $(this).attr('data-id');
+            Swal.fire({
+                title: 'Вы действительно хотите удалить договор?',
+                type: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Да',
+                cancelButtonText: 'Нет'
+            }).then((result) => {
+                if (result.value) {
+                    $.post('/Contract/DeleteContract', { contractId:id }, function () {
+                        Swal.fire('Договор удален успешно!', '', 'success').then(() => populateTable());
+                    });
+
+                }
+            });
+        });
+    }
+
+    function configureContractFiles() {
+        $('button[name=contractFiles]').on('click', function () {
+            const id = $(this).attr('data-id');
         });
     }
 </script>

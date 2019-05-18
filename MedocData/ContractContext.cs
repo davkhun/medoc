@@ -27,6 +27,35 @@ namespace MedocData
             return res;
         }
 
+        public ContractModel GetContract(int contractId)
+        {
+            var result = new ContractModel();
+            var raw = sql.ExecuteAdapter("CALL `contract_get`(@contractId)", new Dictionary<string, string>
+            {
+                {"@contractId", contractId.ToString() }
+            });
+            foreach(DataRow r in raw.Rows)
+            {
+                result.ContractId = Convert.ToInt32(r["contract_id"]);
+                result.CounterpartyId = Convert.ToInt32(r["client_id"]);
+                result.CounterpartyName = r["org_name"].ToString();
+                result.ContractName = r["contract_name"].ToString();
+                result.ContractSum = Convert.ToDecimal(r["contract_sum"]);
+                result.ContractFrom = r["contract_from"] == DBNull.Value ? (DateTime?)null : Convert.ToDateTime(r["contract_from"]);
+                result.ContractTo = r["contract_to"] == DBNull.Value ? (DateTime?)null : Convert.ToDateTime(r["contract_to"]);
+                result.Comment = r["comment"].ToString();
+            }
+            return result;
+        }
+
+        public void DeleteContract(int contractId)
+        {
+            sql.ExecuteNonQuery("CALL `contract_delete`(@contractId)", new Dictionary<string, string>
+            {
+                {"@contractId", contractId.ToString() }
+            });
+        }
+
         public List<ContractTable> GetTable(int userId, bool showAll)
         {
             var result = new List<ContractTable>();

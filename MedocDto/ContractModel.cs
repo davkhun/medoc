@@ -15,6 +15,7 @@ namespace MedocDto
         public DateTime? ContractFrom { get; set; }
         public DateTime? ContractTo { get; set; }
         public int? CounterpartyId { get; set; }
+        public string CounterpartyName { get; set; }
         public string Comment { get; set; }
     }
 }
