@@ -80,5 +80,17 @@ namespace Medoc.Controllers
             }
             return Json(result, JsonRequestBehavior.AllowGet);
         }
+
+        public JsonResult GetFiles (int contractId)
+        {
+            var result = _fileContext.Get(contractId);
+            return Json(result, JsonRequestBehavior.AllowGet);
+        }
+
+        public FileResult DownloadFile(int fileId, string fileName)
+        {
+            byte[] bt = _fileContext.Download(fileId);
+            return File(bt, System.Net.Mime.MediaTypeNames.Application.Octet, fileName);
+        }
     }
 }

@@ -134,6 +134,9 @@
                         <hr />
                     </div>
                 </div>
+                <div id="fileContainer">
+
+                </div>
 
             </div>
             <div class="modal-footer">
@@ -205,6 +208,7 @@
                     $('#newContractModal').modal('hide');
                     if (showFiles) {
                         $('#newContractFileModal').attr('data-id', result.Id);
+                        populateContractFiles(result.Id);
                         $('#newContractFileModal').modal('show');
                     }
                     else {
@@ -217,6 +221,19 @@
                 }
             });
         }
+    }
+
+    function populateContractFiles(contractId) {
+        $.get('/Contract/GetFiles', { contractId: contractId }, function (result) {
+            $('#fileContainer').empty();
+            result.forEach(function (item) {
+                let fileTemplate = '<div class="form-row"><div class="col-md-12"><a href="/Contract/DownloadFile?fileId=#fileId#&fileName=#fileName#" name="downloadFile" data-toggle="tooltip" title="Скачать">#fileName#</a><i name="deleteFile" class="fas fa-trash" data-toggle="tooltip" title="Удалить" style="cursor:pointer;color:crimson" data-id="#fileId#"></i></div></div>';
+                fileTemplate = fileTemplate.replace(/#fileId#/g, item.FileId);
+                fileTemplate = fileTemplate.replace(/#fileName#/g, item.FileName);
+                $('#fileContainer').append(fileTemplate);
+            });
+            $('[data-toggle="tooltip"]').tooltip();
+        });
     }
 
     $('#updateContractBtn').on('click', function () {
@@ -376,6 +393,8 @@
     function configureContractFiles() {
         $('button[name=contractFiles]').on('click', function () {
             const id = $(this).attr('data-id');
+            populateContractFiles(id);
+            $('#newContractFileModal').modal('show');
         });
     }
 </script>

@@ -46,6 +46,7 @@
     <Compile Include="ContractModel.cs" />
     <Compile Include="ContractTable.cs" />
     <Compile Include="DictionaryModel.cs" />
+    <Compile Include="FileModel.cs" />
     <Compile Include="UploadFileModel.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Result.cs" />
